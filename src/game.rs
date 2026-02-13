@@ -540,7 +540,7 @@ impl Game {
         }
 
         renderer.draw_centered(
-            "Thank you for playing Fish Dating Simulator!",
+            "Thank you for playing cult_papa Fish Dating Simulator!",
             18.0,
             Colors::CYAN,
         );

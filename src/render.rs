@@ -1,4 +1,4 @@
-//! Rendering backend for the Fish Dating Simulator.
+//! Rendering backend for the cult_papa Fish Dating Simulator.
 //!
 //! Wraps sable-gpu text rendering into a simple API for drawing
 //! ASCII art and text at grid positions in a GPU-accelerated window.

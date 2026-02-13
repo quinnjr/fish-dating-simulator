@@ -1,4 +1,4 @@
-// 2D Sprite/Text Shader for Fish Dating Simulator
+// 2D Sprite/Text Shader for cult_papa Fish Dating Simulator
 
 struct Camera2DUniform {
     view_proj: mat4x4<f32>,

@@ -7,7 +7,7 @@ use crate::data::PlayerState;
 fn save_path() -> PathBuf {
     let dir = dirs_next::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("fish-dating-simulator");
+        .join("cult-papa-fish-dating-simulator");
     std::fs::create_dir_all(&dir).ok();
     dir.join("save.json")
 }

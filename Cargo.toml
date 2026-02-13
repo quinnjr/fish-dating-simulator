@@ -1,13 +1,13 @@
 [package]
-name = "fish-dating-simulator"
+name = "cult-papa-fish-dating-simulator"
 version = "0.1.0"
 edition = "2024"
 authors = ["Pegasus Heavy Industries LLC"]
-description = "A fish dating simulator with ASCII art - catch fish and take them on dates!"
+description = "cult_papa's fish dating simulator - catch fish, date fish, lose your mind."
 license = "MIT"
 
 [[bin]]
-name = "fish-dating-simulator"
+name = "cult-papa-fish-dating-simulator"
 path = "src/main.rs"
 
 [dependencies]

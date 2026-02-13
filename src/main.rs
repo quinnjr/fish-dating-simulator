@@ -1,4 +1,4 @@
-//! Fish Dating Simulator
+//! cult_papa Fish Dating Simulator
 //!
 //! A 2D ASCII-art dating simulator where you catch fish and take them on dates.
 //! Built with the Sable engine.
@@ -150,7 +150,7 @@ impl ApplicationHandler for App {
             return;
         }
 
-        let config = WindowConfig::new("Fish Dating Simulator")
+        let config = WindowConfig::new("cult_papa Fish Dating Simulator")
             .with_size(WINDOW_WIDTH, WINDOW_HEIGHT)
             .with_resizable(true)
             .with_vsync(true);
@@ -173,7 +173,7 @@ impl ApplicationHandler for App {
         self.gpu = Some(gpu);
         self.last_frame = Instant::now();
 
-        tracing::info!("Fish Dating Simulator initialized!");
+        tracing::info!("cult_papa Fish Dating Simulator initialized!");
     }
 
     fn window_event(
@@ -235,7 +235,7 @@ impl ApplicationHandler for App {
 fn main() {
     tracing_subscriber::fmt::init();
 
-    tracing::info!("Starting Fish Dating Simulator");
+    tracing::info!("Starting cult_papa Fish Dating Simulator");
     tracing::info!("Catch fish. Date fish. Find love.");
 
     let event_loop = create_event_loop().expect("Failed to create event loop");
