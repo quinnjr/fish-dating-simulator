@@ -1,0 +1,31 @@
+[package]
+name = "fish-dating-simulator"
+version = "0.1.0"
+edition = "2024"
+authors = ["Pegasus Heavy Industries LLC"]
+description = "A fish dating simulator with ASCII art - catch fish and take them on dates!"
+license = "MIT"
+
+[[bin]]
+name = "fish-dating-simulator"
+path = "src/main.rs"
+
+[dependencies]
+# Sable Engine crates
+sable-platform = { path = "../sable/crates/sable-platform" }
+sable-gpu = { path = "../sable/crates/sable-gpu" }
+sable-dialogue = { path = "../sable/crates/sable-dialogue" }
+
+# Windowing and GPU
+pollster = "0.4"
+winit = { version = "0.30", features = ["x11", "wayland"] }
+wgpu = { version = "22", features = ["webgpu", "webgl"] }
+bytemuck = { version = "1.21", features = ["derive"] }
+
+# Utilities
+rand = "0.8"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dirs-next = "2.0"
