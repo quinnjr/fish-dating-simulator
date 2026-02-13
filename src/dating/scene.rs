@@ -31,8 +31,8 @@ pub struct DatingState {
 }
 
 impl DatingState {
-    pub fn new(fish_id: FishId) -> Self {
-        let tree = dialogues::build_dialogue(fish_id);
+    pub fn new(fish_id: FishId, date_number: u32) -> Self {
+        let tree = dialogues::build_dialogue(fish_id, date_number);
         let runner = DialogueRunner::new(tree);
 
         let mut state = Self {

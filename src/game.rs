@@ -159,6 +159,7 @@ impl Game {
                 affection,
             } => {
                 self.player.add_affection(*fish_id, *affection);
+                self.player.increment_date_count(*fish_id);
                 self.player.dates_completed += 1;
                 self.player.current_day += 1;
                 let _ = save::save_game(&self.player);
@@ -253,7 +254,8 @@ impl Game {
                         .copied()
                         .collect();
                     if let Some(&fish_id) = dateable.get(idx) {
-                        Some(GameScreen::Dating(DatingState::new(fish_id)))
+                        let date_num = self.player.date_count(fish_id);
+                        Some(GameScreen::Dating(DatingState::new(fish_id, date_num)))
                     } else {
                         None
                     }

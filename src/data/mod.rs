@@ -113,6 +113,7 @@ pub fn relationship_label(score: i32) -> &'static str {
 pub struct PlayerState {
     pub fish_collection: Vec<CaughtFish>,
     pub relationship_scores: HashMap<FishId, i32>,
+    pub date_counts: HashMap<FishId, u32>,
     pub current_day: u32,
     pub dates_completed: u32,
 }
@@ -122,6 +123,7 @@ impl Default for PlayerState {
         Self {
             fish_collection: Vec::new(),
             relationship_scores: HashMap::new(),
+            date_counts: HashMap::new(),
             current_day: 1,
             dates_completed: 0,
         }
@@ -144,6 +146,15 @@ impl PlayerState {
     pub fn add_affection(&mut self, fish_id: FishId, amount: i32) {
         let score = self.relationship_scores.entry(fish_id).or_insert(0);
         *score = (*score + amount).max(0);
+    }
+
+    pub fn date_count(&self, fish_id: FishId) -> u32 {
+        self.date_counts.get(&fish_id).copied().unwrap_or(0)
+    }
+
+    pub fn increment_date_count(&mut self, fish_id: FishId) {
+        let count = self.date_counts.entry(fish_id).or_insert(0);
+        *count += 1;
     }
 
     pub fn add_catch(&mut self, fish_id: FishId, pond_name: &str, size: FishSize) {
