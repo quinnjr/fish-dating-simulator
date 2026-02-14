@@ -9,6 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   BINARY_NAME: cult-papa-fish-dating-simulator
+  GIT_LFS_SKIP_SMUDGE: 1
 
 jobs:
   build:
@@ -39,7 +40,7 @@ jobs:
           # Create a fine-grained or classic PAT and store it as the SABLE_PAT secret.
           token: ${{ secrets.SABLE_PAT || secrets.GITHUB_TOKEN }}
           submodules: recursive
-          lfs: true
+          lfs: false
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
