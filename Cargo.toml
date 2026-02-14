@@ -15,6 +15,7 @@ path = "src/main.rs"
 sable-platform = { path = "sable/crates/sable-platform" }
 sable-gpu = { path = "sable/crates/sable-gpu" }
 sable-dialogue = { path = "sable/crates/sable-dialogue" }
+sable-steam = { path = "sable/crates/sable-steam", default-features = false }
 
 # Windowing and GPU
 pollster = "0.4"

@@ -624,6 +624,7 @@ dependencies = [
  "sable-dialogue",
  "sable-gpu",
  "sable-platform",
+ "sable-steam",
  "serde",
  "serde_json",
  "tracing",
@@ -2706,6 +2707,19 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "winit",
+]
+
+[[package]]
+name = "sable-steam"
+version = "0.1.0"
+dependencies = [
+ "bitflags 2.10.0",
+ "parking_lot",
+ "sable-core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]

@@ -2,6 +2,7 @@
 
 use winit::keyboard::KeyCode;
 
+use crate::achievements::AchievementTracker;
 use crate::ascii_art;
 use crate::data::{FishId, FishSize, PlayerState, relationship_label};
 use crate::data::save;
@@ -49,6 +50,8 @@ pub struct Game {
     collection_scroll: usize,
     /// Tracks the secret "moon" key sequence on the main menu.
     moon_secret: SecretSequence,
+    /// Achievement tracker (Steam + local).
+    pub achievements: AchievementTracker,
 }
 
 impl Game {
@@ -81,6 +84,7 @@ impl Game {
             date_select_menu: None,
             collection_scroll: 0,
             moon_secret: SecretSequence::new(),
+            achievements: AchievementTracker::new(),
         }
     }
 
@@ -99,6 +103,8 @@ impl Game {
 
     pub fn update(&mut self, dt: f32, key: Option<KeyCode>) {
         self.time += dt;
+        self.achievements.run_callbacks();
+        self.achievements.update(dt);
 
         let transition = match &mut self.screen {
             GameScreen::MainMenu => self.update_main_menu(key),
@@ -120,7 +126,14 @@ impl Game {
             GameScreen::Dating(state) => state.update(dt, key),
             GameScreen::DateResult { .. } => self.update_date_result(key),
             GameScreen::GameOver => self.update_game_over(key),
-            GameScreen::MoonBattle(state) => state.update(dt, key),
+            GameScreen::MoonBattle(state) => {
+                let result = state.update(dt, key);
+                if state.take_victory_flag() {
+                    self.achievements.on_moon_victory(&mut self.player.achievements);
+                    let _ = save::save_game(&self.player);
+                }
+                result
+            }
         };
 
         if let Some(new_screen) = transition {
@@ -174,6 +187,9 @@ impl Game {
                 self.player.add_catch(fish_id.clone(), &pond_name, *size);
                 // Give a small affection bonus for catching
                 self.player.add_affection(fish_id.clone(), 1);
+                // Check catch-related achievements
+                self.achievements.on_catch_size(*size, &mut self.player.achievements);
+                self.achievements.check_state(&mut self.player, &self.registry);
                 let _ = save::save_game(&self.player);
             }
             GameScreen::DateResult {
@@ -184,6 +200,8 @@ impl Game {
                 self.player.increment_date_count(fish_id.clone());
                 self.player.dates_completed += 1;
                 self.player.current_day += 1;
+                // Check date/relationship achievements
+                self.achievements.check_state(&mut self.player, &self.registry);
                 let _ = save::save_game(&self.player);
             }
             _ => {}
@@ -196,6 +214,8 @@ impl Game {
 
         // Feed every key press to the secret "moon" detector
         if self.moon_secret.feed(k) {
+            self.achievements.on_moon_battle_started(&mut self.player.achievements);
+            let _ = save::save_game(&self.player);
             return Some(GameScreen::MoonBattle(MoonBattleState::new()));
         }
 
@@ -345,6 +365,9 @@ impl Game {
             GameScreen::GameOver => self.render_game_over(renderer),
             GameScreen::MoonBattle(state) => state.render(renderer, self.time),
         }
+
+        // Achievement toast overlay (drawn on top of everything)
+        self.achievements.render_toasts(renderer);
     }
 
     fn render_main_menu(&self, renderer: &mut GameRenderer) {
@@ -420,8 +443,13 @@ impl Game {
         let day = self.player.current_day;
         let fish_count = self.player.fish_collection.len();
         let dates = self.player.dates_completed;
+        let ach_unlocked = AchievementTracker::unlocked_count(&self.player.achievements);
+        let ach_total = AchievementTracker::total_count();
         renderer.draw_centered(
-            &format!("Day {} | Fish: {} | Dates: {}", day, fish_count, dates),
+            &format!(
+                "Day {} | Fish: {} | Dates: {} | Achievements: {}/{}",
+                day, fish_count, dates, ach_unlocked, ach_total
+            ),
             row,
             Colors::DARK_GRAY,
         );

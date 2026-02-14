@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::achievements::UnlockedAchievements;
 use crate::plugins::FishRegistry;
 
 /// Unique fish identity.
@@ -208,6 +209,9 @@ pub struct PlayerState {
     pub date_counts: HashMap<FishId, u32>,
     pub current_day: u32,
     pub dates_completed: u32,
+    /// Locally tracked achievement unlocks.
+    #[serde(default)]
+    pub achievements: UnlockedAchievements,
 }
 
 impl Default for PlayerState {
@@ -218,6 +222,7 @@ impl Default for PlayerState {
             date_counts: HashMap::new(),
             current_day: 1,
             dates_completed: 0,
+            achievements: UnlockedAchievements::default(),
         }
     }
 }

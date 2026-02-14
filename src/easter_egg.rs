@@ -80,6 +80,8 @@ pub struct MoonBattleState {
     _skip_requested: bool,
     /// Shake offset for impact frames.
     shake: f32,
+    /// Set to true the frame victory is first reached.
+    victory_just_reached: bool,
 }
 
 impl MoonBattleState {
@@ -91,6 +93,18 @@ impl MoonBattleState {
             clash_cycles: 0,
             _skip_requested: false,
             shake: 0.0,
+            victory_just_reached: false,
+        }
+    }
+
+    /// Returns true once when the victory phase is first entered.
+    /// Subsequent calls return false.
+    pub fn take_victory_flag(&mut self) -> bool {
+        if self.victory_just_reached {
+            self.victory_just_reached = false;
+            true
+        } else {
+            false
         }
     }
 
@@ -138,6 +152,7 @@ impl MoonBattleState {
                 self.shake = 1.0;
                 self.clash_cycles += 1;
                 if self.clash_cycles >= 4 {
+                    self.victory_just_reached = true;
                     Phase::Victory
                 } else {
                     Phase::Clash((n + 1) % 3)

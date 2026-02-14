@@ -15,6 +15,7 @@ use winit::window::WindowId;
 use sable_gpu::prelude::*;
 use sable_platform::prelude::*;
 
+mod achievements;
 #[allow(dead_code)]
 mod ascii_art;
 mod data;
