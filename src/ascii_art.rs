@@ -261,15 +261,14 @@ pub const CULT_PAPA_LASSO: &str = r#"
 "#;
 
 pub const CULT_PAPA_CAPTURE: &str = r#"
-             .---.
-     ___    / O   \
-    /   \  |  ___  |
-   | ^_^ | | /   \ |
-    \___/  |/     \|
-     /|\   '-------'
-    / | \     |||
-     / \      |||
-    /   \  ~~~|||~~~
+     ___
+    /   \
+   | ^_^ |
+    \___/
+     /|\  ===
+    / | \
+     / \
+    /   \
 "#;
 
 pub const MOON_FALLING: &str = r#"
@@ -374,6 +373,24 @@ pub const STARS_ONLY: &str = r#"
    *     .            *
   .   *      .    .   *     .
 "#;
+
+// ─── Moon Face (standalone, for separate rendering with glow/animation) ─────
+
+pub const MOON_FACE: &str = "\
+ .---.
+/ O   \\
+|  ___  |
+| /   \\ |
+ \\     /
+  '---'";
+
+pub const MOON_FACE_PANIC: &str = "\
+ .---.
+/ O_O \\
+|  !!!  |
+| /   \\ |
+ \\     /
+  '---'";
 
 // ─── Fish Descriptions ──────────────────────────────────────────────────────
 

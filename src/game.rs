@@ -348,87 +348,88 @@ impl Game {
     }
 
     fn render_main_menu(&self, renderer: &mut GameRenderer) {
-        // Title art (18 lines starting at row 1)
-        let title_lines = ascii_art::TITLE_ART.lines().count() as f32;
+        // Window gives us ~48 rows (768px / 16px per row). Spread content evenly.
+
+        // Title art — skip the leading blank line in the raw string
+        let title_art = ascii_art::TITLE_ART.trim_start_matches('\n');
+        let title_lines = title_art.lines().count() as f32;
         let hue = (self.time * 0.5).sin() * 0.5 + 0.5;
         let title_color = [0.0 + hue * 0.3, 0.8 + hue * 0.2, 1.0, 1.0];
-        renderer.draw_multiline_centered(ascii_art::TITLE_ART, 1.0, title_color);
+        renderer.draw_multiline_centered(title_art, 1.0, title_color);
 
-        // Subtitle just below the title art
-        let subtitle_row = 1.0 + title_lines;
+        // Subtitle — 3 row gap after title art
+        let mut row = 1.0 + title_lines + 3.0;
         let pulse = (self.time * 2.0).sin() * 0.2 + 0.8;
         renderer.draw_centered(
             ascii_art::SUBTITLE,
-            subtitle_row,
+            row,
             [1.0, 1.0, 0.0, pulse],
         );
 
-        // Animated swimming fish below subtitle
-        let fish_start = subtitle_row + 2.0;
+        // Animated swimming fish — 3 row gap after subtitle
+        row += 3.0;
         let fish_x_offset = (self.time * 1.5).sin() * 3.0;
         let cols = renderer.screen_cols();
         let fish_col = (cols / 2.0 - 5.0 + fish_x_offset) as f32;
         renderer.draw_at_grid(
             ascii_art::BUBBLES_SMALL,
             fish_col,
-            fish_start,
+            row,
             Colors::ORANGE,
         );
         renderer.draw_at_grid(
             ascii_art::MARINA_SMALL,
             fish_col + 15.0 - fish_x_offset * 0.5,
-            fish_start + 1.0,
+            row + 1.0,
             Colors::LIGHT_BLUE,
         );
         renderer.draw_at_grid(
             ascii_art::GILL_SMALL,
             fish_col + 5.0 + fish_x_offset * 0.7,
-            fish_start + 2.0,
+            row + 2.0,
             Colors::GREEN,
         );
 
-        // Animated water line
-        let wave_row = fish_start + 3.0;
+        // Animated water line — directly below fish (3 fish lines)
+        row += 4.0;
         let wave = if ((self.time * 3.0) as i32) % 2 == 0 {
             "~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~"
         } else {
             " ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~"
         };
-        renderer.draw_centered(wave, wave_row, [0.2, 0.3, 0.7, 0.6]);
+        renderer.draw_centered(wave, row, [0.2, 0.3, 0.7, 0.6]);
 
-        // Menu below the water line with a gap
-        let menu_row = wave_row + 2.0;
-        self.menu.draw_centered(renderer, menu_row);
+        // Menu — 3 row gap after water line
+        row += 3.0;
+        self.menu.draw_centered(renderer, row);
+        row += self.menu.items.len() as f32;
 
-        // Everything below the menu flows from the menu bottom
-        let menu_end = menu_row + self.menu.items.len() as f32;
-
-        // Plugin count indicator
-        let mut info_row = menu_end + 1.0;
+        // Plugin count indicator — 2 row gap after menu
+        row += 2.0;
         if self.registry.count() > 0 {
             renderer.draw_centered(
                 &format!("Plugins: {} fish loaded", self.registry.count()),
-                info_row,
+                row,
                 Colors::PURPLE,
             );
-            info_row += 1.0;
+            row += 2.0;
         }
 
-        // Status bar
-        info_row += 1.0;
+        // Status bar — 2 row gap
+        row += 2.0;
         let day = self.player.current_day;
         let fish_count = self.player.fish_collection.len();
         let dates = self.player.dates_completed;
         renderer.draw_centered(
             &format!("Day {} | Fish: {} | Dates: {}", day, fish_count, dates),
-            info_row,
+            row,
             Colors::DARK_GRAY,
         );
 
-        // Controls hint
+        // Controls hint — 3 row gap
         renderer.draw_centered(
             "[Arrow Keys] Navigate  [Enter] Select  [Esc] Quit",
-            info_row + 2.0,
+            row + 3.0,
             [0.3, 0.3, 0.3, 0.5],
         );
     }

@@ -193,45 +193,92 @@ impl DatingState {
             return;
         }
 
-        // Dialogue box
+        // Dialogue box — dynamically sized to fit content
         let box_row = 14.0;
         let box_width = 56;
+        let inner_width = box_width - 4; // 2 for border chars + 2 for padding
         let box_col = ((cols.saturating_sub(box_width)) / 2) as f32;
 
-        ui::draw_box(renderer, box_col, box_row, box_width, 8, Colors::WHITE);
-
-        // Speaker name
-        if !self.current_speaker.is_empty() {
-            renderer.draw_at_grid(
-                &format!(" {} ", self.current_speaker),
-                box_col + 2.0,
-                box_row,
-                self.fish_id.color(),
-            );
-        }
-
         if let Some(ref menu) = self.choice_menu {
-            // Show prompt
-            if !self.current_text.is_empty() {
-                let display_text = truncate_to_width(&self.current_text, box_width - 4);
-                renderer.draw_at_grid(&display_text, box_col + 2.0, box_row + 1.0, Colors::GRAY);
+            // Wrap prompt text (if any)
+            let prompt_lines = if !self.current_text.is_empty() {
+                word_wrap(&self.current_text, inner_width)
+            } else {
+                Vec::new()
+            };
+
+            // Wrap each choice item with "> " prefix space accounted for
+            let choice_lines: Vec<String> = menu.items.iter().map(|item| {
+                // Each choice has "  " or "> " prefix = 2 chars
+                let wrapped = word_wrap(item, inner_width - 2);
+                // For now take the first wrap line; multi-line choices are rare
+                wrapped.into_iter().next().unwrap_or_default()
+            }).collect();
+
+            // Calculate box height: borders(2) + prompt lines + blank separator(1) + choices + bottom padding(1)
+            let prompt_rows = if prompt_lines.is_empty() { 0 } else { prompt_lines.len() + 1 };
+            let box_height = 2 + prompt_rows + choice_lines.len() + 1;
+            let box_height = box_height.max(5); // minimum height
+
+            ui::draw_box(renderer, box_col, box_row, box_width, box_height, Colors::WHITE);
+
+            // Speaker name on top border
+            if !self.current_speaker.is_empty() {
+                renderer.draw_at_grid(
+                    &format!(" {} ", self.current_speaker),
+                    box_col + 2.0,
+                    box_row,
+                    self.fish_id.color(),
+                );
             }
-            // Show choices
-            menu.draw(renderer, box_col + 2.0, box_row + 3.0);
+
+            let mut content_row = box_row + 1.0;
+
+            // Draw prompt lines
+            for line in &prompt_lines {
+                renderer.draw_at_grid(line, box_col + 2.0, content_row, Colors::GRAY);
+                content_row += 1.0;
+            }
+
+            // Blank separator after prompt
+            if !prompt_lines.is_empty() {
+                content_row += 1.0;
+            }
+
+            // Draw choices
+            menu.draw(renderer, box_col + 2.0, content_row);
         } else {
+            // Regular text node — wrap the full text to measure needed height
+            let all_wrapped = word_wrap(&self.current_text, inner_width);
+            // Box height: borders(2) + text lines + enter prompt row(1) + padding(1)
+            let box_height = (2 + all_wrapped.len() + 2).max(5);
+
+            ui::draw_box(renderer, box_col, box_row, box_width, box_height, Colors::WHITE);
+
+            // Speaker name on top border
+            if !self.current_speaker.is_empty() {
+                renderer.draw_at_grid(
+                    &format!(" {} ", self.current_speaker),
+                    box_col + 2.0,
+                    box_row,
+                    self.fish_id.color(),
+                );
+            }
+
             // Show text with typewriter effect
             let visible = &self.current_text[..self.current_text.len().min(self.typewriter_pos)];
-            let wrapped = word_wrap(visible, box_width - 4);
+            let wrapped = word_wrap(visible, inner_width);
             for (i, line) in wrapped.iter().enumerate() {
                 renderer.draw_at_grid(line, box_col + 2.0, box_row + 1.0 + i as f32, Colors::WHITE);
             }
 
-            // Show "press enter" prompt
+            // Show "press enter" prompt at the bottom of the box
             if self.typewriter_pos >= self.current_text.len() {
+                let enter_row = box_row + (box_height as f32) - 2.0;
                 renderer.draw_at_grid(
                     "[Enter]",
                     box_col + (box_width as f32) - 10.0,
-                    box_row + 7.0,
+                    enter_row,
                     Colors::DARK_GRAY,
                 );
             }
@@ -268,6 +315,7 @@ fn word_wrap(text: &str, max_width: usize) -> Vec<String> {
 }
 
 /// Truncate text to fit within a given width.
+#[allow(dead_code)]
 fn truncate_to_width(text: &str, max_width: usize) -> String {
     if text.len() <= max_width {
         text.to_string()

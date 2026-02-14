@@ -274,9 +274,16 @@ impl GameRenderer {
     }
 
     /// Draw multi-line centered text.
+    ///
+    /// Centers the *block* as a whole based on the widest line, then draws
+    /// every line from the same starting column so internal ASCII-art
+    /// alignment is preserved.
     pub fn draw_multiline_centered(&mut self, text: &str, start_row: f32, color: [f32; 4]) {
+        let max_width = text.lines().map(|l| l.len()).max().unwrap_or(0) as f32;
+        let cols = self.screen_cols();
+        let start_col = (cols - max_width) / 2.0;
         for (i, line) in text.lines().enumerate() {
-            self.draw_centered(line, start_row + i as f32, color);
+            self.draw_at_grid(line, start_col, start_row + i as f32, color);
         }
     }
 
