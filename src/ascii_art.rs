@@ -236,6 +236,145 @@ pub const DIALOGUE_SIDE: &str = "|";
 
 pub const POND_NAMES: [&str; 3] = ["Sunny Shallows", "Misty Depths", "Crystal Cove"];
 
+// ─── Easter Egg: cult_papa vs The Moon ──────────────────────────────────────
+
+pub const CULT_PAPA_STANDING: &str = r#"
+     ___
+    /   \
+   | o_o |
+    \___/
+     /|\
+    / | \
+     / \
+    /   \
+"#;
+
+pub const CULT_PAPA_LASSO: &str = r#"
+     ___          .-~~~-.
+    /   \    .--o/       \
+   | >_< |  |   \       /
+    \___/   '    '-...-'
+     /|\  ~~~~>
+    / | \
+     / \
+    /   \
+"#;
+
+pub const CULT_PAPA_CAPTURE: &str = r#"
+             .---.
+     ___    / O   \
+    /   \  |  ___  |
+   | ^_^ | | /   \ |
+    \___/  |/     \|
+     /|\   '-------'
+    / | \     |||
+     / \      |||
+    /   \  ~~~|||~~~
+"#;
+
+pub const MOON_FALLING: &str = r#"
+        .---.
+       / O   \
+      |  ___  |      !!!
+      | /   \ |
+       \     /    WHAT THE--
+        '---'
+         \
+          \
+           V
+"#;
+
+pub const CULT_PAPA_SWORD: &str = r#"
+     ___
+    /   \
+   | >_< |
+    \___/       +
+     /|\      //
+    /*| \   //
+     / \ ===
+    /   \
+"#;
+
+pub const MOON_SWORD: &str = r#"
+      .---.
+     / X_X \
+    |  ___  |
+    | /   \ |
+     \     /
+  +   '---'
+   \\  /|\
+    \\/ | \
+  === / \
+"#;
+
+pub const DUEL_CLASH_1: &str = r#"
+     ___                    .---.
+    /   \                  / >_< \
+   | >_< |        *      |  ___  |
+    \___/       * | *     | /   \ |
+     /|\      //  *  \\    \     /
+    /*| \   //  CLANG! \\   '---'
+     / \ ===            === /|\
+    /   \                  / | \
+"#;
+
+pub const DUEL_CLASH_2: &str = r#"
+     ___                    .---.
+    /   \    ===>>>        / @_@ \
+   | o_O |     SLASH!     |  ___  |
+    \___/                 | /   \ |
+     /|\                   \     /
+    /*| \     *  *  *       '---'
+     / \   *  SPARKS  *     /|\
+    /   \    *  *  *       / | \
+"#;
+
+pub const DUEL_CLASH_3: &str = r#"
+     ___                    .---.
+    /   \                  / >o< \
+   | 0_0 |     <<<===    |  ___  |
+    \___/      PARRY!     | /   \ |
+     /|\                   \     /
+    / |\     *  *  *       '---'
+     / \   *  CLANK  *     /|*\
+    /   \    *  *  *       / | \
+"#;
+
+pub const CULT_PAPA_VICTORY: &str = r#"
+         *  *  *  *
+     ___   \|/
+    /   \  -O-
+   | ^_^ | /|\   .---.
+    \___/       / x_x \
+     /|\       |  ___  |
+    /*| \      |       |
+     / \        \_____/
+    /   \     (defeated)
+      CULT_PAPA WINS!
+"#;
+
+pub const MOON_NIGHT_SKY: &str = r#"
+  *       .  *    *       .   *
+      *       .---.    *
+   .     *   / O   \      .    *
+     *      |  ___  |  .     *
+  .      *  | /   \ |    .
+     .       \     /  *      .
+   *     .    '---'       *
+  .   *      .    .   *     .
+"#;
+
+pub const STARS_ONLY: &str = r#"
+  *       .  *    *       .   *
+      *         .     *
+   .     *              .    *
+     *               .     *
+  .      *              .
+     .            *      .
+   *     .            *
+  .   *      .    .   *     .
+"#;
+
 // ─── Fish Descriptions ──────────────────────────────────────────────────────
 
 pub const BUBBLES_DESC: &str = "A cheerful clownfish who loves puns and always\nlooks on the bright side. Energetic and warm.";

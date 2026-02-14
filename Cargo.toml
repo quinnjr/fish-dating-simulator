@@ -12,9 +12,9 @@ path = "src/main.rs"
 
 [dependencies]
 # Sable Engine crates
-sable-platform = { path = "../sable/crates/sable-platform" }
-sable-gpu = { path = "../sable/crates/sable-gpu" }
-sable-dialogue = { path = "../sable/crates/sable-dialogue" }
+sable-platform = { path = "sable/crates/sable-platform" }
+sable-gpu = { path = "sable/crates/sable-gpu" }
+sable-dialogue = { path = "sable/crates/sable-dialogue" }
 
 # Windowing and GPU
 pollster = "0.4"
@@ -29,3 +29,4 @@ tracing-subscriber = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 dirs-next = "2.0"
+rhai = "1.24.0"

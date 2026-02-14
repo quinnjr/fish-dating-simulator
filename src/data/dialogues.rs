@@ -8,23 +8,46 @@ use sable_dialogue::prelude::*;
 use sable_dialogue::dialogue::DialogueBuilder;
 
 use crate::data::FishId;
+use crate::plugins::FishRegistry;
 
 /// Number of unique dialogues per fish.
 const DIALOGUES_PER_FISH: u32 = 3;
 
 /// Build the dialogue tree for a specific fish and date number.
-pub fn build_dialogue(fish_id: FishId, date_number: u32) -> DialogueTree {
-    let variant = date_number % DIALOGUES_PER_FISH;
-    match (fish_id, variant) {
-        (FishId::Bubbles, 0) => build_bubbles_date1(),
-        (FishId::Bubbles, 1) => build_bubbles_date2(),
-        (FishId::Bubbles, _) => build_bubbles_date3(),
-        (FishId::Marina, 0) => build_marina_date1(),
-        (FishId::Marina, 1) => build_marina_date2(),
-        (FishId::Marina, _) => build_marina_date3(),
-        (FishId::Gill, 0) => build_gill_date1(),
-        (FishId::Gill, 1) => build_gill_date2(),
-        (FishId::Gill, _) => build_gill_date3(),
+pub fn build_dialogue(fish_id: &FishId, date_number: u32, registry: &FishRegistry) -> DialogueTree {
+    match fish_id {
+        FishId::Bubbles => {
+            let variant = date_number % DIALOGUES_PER_FISH;
+            match variant {
+                0 => build_bubbles_date1(),
+                1 => build_bubbles_date2(),
+                _ => build_bubbles_date3(),
+            }
+        }
+        FishId::Marina => {
+            let variant = date_number % DIALOGUES_PER_FISH;
+            match variant {
+                0 => build_marina_date1(),
+                1 => build_marina_date2(),
+                _ => build_marina_date3(),
+            }
+        }
+        FishId::Gill => {
+            let variant = date_number % DIALOGUES_PER_FISH;
+            match variant {
+                0 => build_gill_date1(),
+                1 => build_gill_date2(),
+                _ => build_gill_date3(),
+            }
+        }
+        FishId::Plugin(plugin_id) => {
+            if let Some(fish) = registry.get(plugin_id) {
+                fish.dialogue_for_date(date_number)
+            } else {
+                // Fallback empty dialogue
+                crate::plugins::FishDef::fallback_dialogue_for(fish_id.name())
+            }
+        }
     }
 }
 

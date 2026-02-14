@@ -5,22 +5,40 @@ use winit::keyboard::KeyCode;
 use crate::ascii_art;
 use crate::data::FishId;
 use crate::game::GameScreen;
+use crate::plugins::FishRegistry;
 use crate::render::{Colors, GameRenderer};
 use crate::ui::menu::SelectionMenu;
 
 pub struct PondSelectState {
     menu: SelectionMenu,
+    /// Mapping from menu index to FishId.
+    fish_map: Vec<FishId>,
 }
 
 impl PondSelectState {
-    pub fn new() -> Self {
+    pub fn new(registry: &FishRegistry) -> Self {
+        let mut pond_names: Vec<String> = ascii_art::POND_NAMES
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let mut fish_map: Vec<FishId> = Vec::new();
+
+        // Map built-in ponds to fish
+        for fish_id in &FishId::BUILTIN {
+            fish_map.push(fish_id.clone());
+        }
+
+        // Add plugin fish ponds
+        for plugin_id in registry.plugin_ids() {
+            if let Some(fish) = registry.get(plugin_id) {
+                pond_names.push(fish.pond_name.clone());
+                fish_map.push(FishId::Plugin(plugin_id.clone()));
+            }
+        }
+
         Self {
-            menu: SelectionMenu::new(
-                ascii_art::POND_NAMES
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect(),
-            ),
+            menu: SelectionMenu::new(pond_names),
+            fish_map,
         }
     }
 
@@ -36,22 +54,20 @@ impl PondSelectState {
             }
             KeyCode::Enter | KeyCode::Space => {
                 let pond_idx = self.menu.selected_index();
-                // Find which fish lives in this pond
-                let fish = FishId::ALL
-                    .iter()
-                    .find(|f| f.pond_index() == pond_idx)
-                    .copied()
-                    .unwrap_or(FishId::Bubbles);
-                Some(GameScreen::FishingMinigame(
-                    crate::fishing::MinigameState::new(fish, pond_idx),
-                ))
+                if let Some(fish_id) = self.fish_map.get(pond_idx) {
+                    Some(GameScreen::FishingMinigame(
+                        crate::fishing::MinigameState::new(fish_id.clone(), pond_idx),
+                    ))
+                } else {
+                    None
+                }
             }
             KeyCode::Escape => Some(GameScreen::MainMenu),
             _ => None,
         }
     }
 
-    pub fn render(&self, renderer: &mut GameRenderer, time: f32) {
+    pub fn render(&self, renderer: &mut GameRenderer, time: f32, registry: &FishRegistry) {
         renderer.draw_centered("=== CHOOSE A FISHING SPOT ===", 1.0, Colors::CYAN);
 
         // Animated pond scene
@@ -72,8 +88,10 @@ impl PondSelectState {
 
         // Fish hint for selected pond
         let pond_idx = self.menu.selected_index();
-        if let Some(fish) = FishId::ALL.iter().find(|f| f.pond_index() == pond_idx) {
-            let hint = format!("Rumor has it {} ({}) swims here...", fish.name(), fish.species());
+        if let Some(fish_id) = self.fish_map.get(pond_idx) {
+            let name = fish_id.name_with_registry(registry);
+            let species = fish_id.species_with_registry(registry);
+            let hint = format!("Rumor has it {} ({}) swims here...", name, species);
             renderer.draw_centered(&hint, 24.0, Colors::GRAY);
         }
 

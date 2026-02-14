@@ -3,8 +3,17 @@
 //! Wraps sable-gpu text rendering into a simple API for drawing
 //! ASCII art and text at grid positions in a GPU-accelerated window.
 
+use std::path::Path;
+
 use sable_gpu::prelude::*;
 use wgpu::util::DeviceExt;
+
+/// An image sprite that can be drawn at a grid position.
+pub struct ImageSprite {
+    pub texture: Texture,
+    pub bind_group: wgpu::BindGroup,
+    pub batch: SpriteBatch,
+}
 
 /// Grid-based text renderer for ASCII art games.
 pub struct GameRenderer {
@@ -16,6 +25,10 @@ pub struct GameRenderer {
     pub camera_bind_group: wgpu::BindGroup,
     pub font_bind_group: wgpu::BindGroup,
     pub camera: Camera2D,
+    /// Bind group layout for textures (reused for image sprites).
+    texture_bind_group_layout: wgpu::BindGroupLayout,
+    /// Loaded image sprites (easter egg faces, etc.)
+    pub cult_papa_face: Option<ImageSprite>,
 }
 
 /// Color presets for the game.
@@ -178,7 +191,7 @@ impl GameRenderer {
             cache: None,
         });
 
-        Self {
+        let mut renderer = Self {
             sprite_pipeline,
             text_renderer,
             font,
@@ -187,7 +200,14 @@ impl GameRenderer {
             camera_bind_group,
             font_bind_group,
             camera,
-        }
+            texture_bind_group_layout,
+            cult_papa_face: None,
+        };
+
+        // Try to load cult_papa face image for the easter egg
+        renderer.try_load_cult_papa_face(device, queue);
+
+        renderer
     }
 
     /// Resize viewport.
@@ -275,5 +295,123 @@ impl GameRenderer {
     pub fn screen_rows(&self) -> f32 {
         let (_, _, top, bottom) = self.camera.visible_bounds();
         (bottom - top) / self.char_height()
+    }
+
+    // ─── Image Sprite Rendering ─────────────────────────────────────────────
+
+    /// Attempt to load the cult_papa face image.
+    fn try_load_cult_papa_face(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        // Try several possible paths for the image
+        let paths = [
+            "images.jpeg",
+            "assets/images.jpeg",
+        ];
+
+        for path in &paths {
+            if Path::new(path).exists() {
+                match Texture::from_file(device, queue, path, &TextureConfig::new().with_mipmaps(false)) {
+                    Ok(texture) => {
+                        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                            label: Some("cult_papa Face BG"),
+                            layout: &self.texture_bind_group_layout,
+                            entries: &[
+                                wgpu::BindGroupEntry {
+                                    binding: 0,
+                                    resource: wgpu::BindingResource::TextureView(texture.view()),
+                                },
+                                wgpu::BindGroupEntry {
+                                    binding: 1,
+                                    resource: wgpu::BindingResource::Sampler(texture.sampler()),
+                                },
+                            ],
+                        });
+
+                        let batch = SpriteBatch::new(device, 16);
+
+                        tracing::info!("Loaded cult_papa face from: {}", path);
+                        self.cult_papa_face = Some(ImageSprite {
+                            texture,
+                            bind_group,
+                            batch,
+                        });
+                        return;
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to load cult_papa face from {}: {:?}", path, e);
+                    }
+                }
+            }
+        }
+
+        tracing::info!("cult_papa face image not found (easter egg face will use ASCII fallback)");
+    }
+
+    /// Begin image sprite drawing. Call before `draw_image_*` methods.
+    pub fn begin_images(&mut self) {
+        if let Some(ref mut face) = self.cult_papa_face {
+            face.batch.begin();
+        }
+    }
+
+    /// Draw the cult_papa face at a grid position with a given size in grid cells.
+    /// `size_cells` is how many grid cells wide/tall the image should be.
+    pub fn draw_cult_papa_face(
+        &mut self,
+        col: f32,
+        row: f32,
+        size_cells: f32,
+        tint: [f32; 4],
+    ) {
+        let (left, _, top, _) = self.camera.visible_bounds();
+        let pixel_size = size_cells * self.char_width();
+        // Position is the center of the sprite
+        let x = left + col * self.char_width() + pixel_size * 0.5;
+        let y = top + row * self.char_height() + pixel_size * 0.5;
+
+        if let Some(ref mut face) = self.cult_papa_face {
+            let params = SpriteParams::new()
+                .with_color(tint[0], tint[1], tint[2], tint[3]);
+            face.batch.draw([x, y], [pixel_size, pixel_size], &params);
+        }
+    }
+
+    /// Draw the cult_papa face centered at a grid row, with a given size in cells.
+    pub fn draw_cult_papa_face_centered(
+        &mut self,
+        row: f32,
+        size_cells: f32,
+        tint: [f32; 4],
+    ) {
+        let cols = self.screen_cols();
+        let col = (cols - size_cells) / 2.0;
+        self.draw_cult_papa_face(col, row, size_cells, tint);
+    }
+
+    /// End image sprite drawing. Returns the sprite count for rendering.
+    pub fn end_images(&mut self, queue: &wgpu::Queue) -> u32 {
+        if let Some(ref mut face) = self.cult_papa_face {
+            face.batch.end(queue)
+        } else {
+            0
+        }
+    }
+
+    /// Render image sprites in the given render pass.
+    /// Must be called after setting the pipeline and camera bind group.
+    pub fn render_images<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>, count: u32) {
+        if count == 0 {
+            return;
+        }
+        if let Some(ref face) = self.cult_papa_face {
+            render_pass.set_bind_group(1, &face.bind_group, &[]);
+            face.batch.render(render_pass, count);
+            // Restore font bind group for any subsequent text rendering
+            render_pass.set_bind_group(1, &self.font_bind_group, &[]);
+        }
+    }
+
+    /// Returns true if the cult_papa face image is loaded.
+    pub fn has_cult_papa_face(&self) -> bool {
+        self.cult_papa_face.is_some()
     }
 }

@@ -6,7 +6,10 @@ use crate::ascii_art;
 use crate::data::{FishId, FishSize, PlayerState, relationship_label};
 use crate::data::save;
 use crate::dating::DatingState;
+use crate::dating::fish as fish_helpers;
+use crate::easter_egg::{MoonBattleState, SecretSequence};
 use crate::fishing::{MinigameState, PondSelectState};
+use crate::plugins::FishRegistry;
 use crate::render::{Colors, GameRenderer};
 use crate::ui;
 use crate::ui::menu::SelectionMenu;
@@ -29,6 +32,8 @@ pub enum GameScreen {
         affection: i32,
     },
     GameOver,
+    /// Secret: cult_papa captures and fights the moon.
+    MoonBattle(MoonBattleState),
 }
 
 /// The complete game state.
@@ -36,15 +41,18 @@ pub struct Game {
     pub screen: GameScreen,
     pub player: PlayerState,
     pub time: f32,
+    pub registry: FishRegistry,
     // Screen-specific sub-states
     menu: SelectionMenu,
     pond_state: Option<PondSelectState>,
     date_select_menu: Option<SelectionMenu>,
     collection_scroll: usize,
+    /// Tracks the secret "moon" key sequence on the main menu.
+    moon_secret: SecretSequence,
 }
 
 impl Game {
-    pub fn new() -> Self {
+    pub fn new(registry: FishRegistry) -> Self {
         let player = save::load_game().unwrap_or_default();
         let has_save = save::save_exists();
 
@@ -67,10 +75,12 @@ impl Game {
             screen: GameScreen::MainMenu,
             player,
             time: 0.0,
+            registry,
             menu: SelectionMenu::new(menu_items),
             pond_state: None,
             date_select_menu: None,
             collection_scroll: 0,
+            moon_secret: SecretSequence::new(),
         }
     }
 
@@ -110,6 +120,7 @@ impl Game {
             GameScreen::Dating(state) => state.update(dt, key),
             GameScreen::DateResult { .. } => self.update_date_result(key),
             GameScreen::GameOver => self.update_game_over(key),
+            GameScreen::MoonBattle(state) => state.update(dt, key),
         };
 
         if let Some(new_screen) = transition {
@@ -121,18 +132,22 @@ impl Game {
         match &screen {
             GameScreen::MainMenu => {
                 self.rebuild_menu();
+                self.moon_secret.reset();
             }
             GameScreen::FishingPondSelect => {
-                self.pond_state = Some(PondSelectState::new());
+                self.pond_state = Some(PondSelectState::new(&self.registry));
             }
             GameScreen::DateSelect => {
-                let dateable: Vec<String> = FishId::ALL
+                let all_fish = FishId::all_with_plugins(&self.registry);
+                let dateable: Vec<String> = all_fish
                     .iter()
-                    .filter(|f| self.player.has_caught(**f))
+                    .filter(|f| self.player.has_caught(f))
                     .map(|f| {
-                        let score = self.player.relationship(*f);
+                        let score = self.player.relationship(f);
                         let label = relationship_label(score);
-                        format!("{} ({}) - {} [{}]", f.name(), f.species(), label, score)
+                        let name = f.name_with_registry(&self.registry);
+                        let species = f.species_with_registry(&self.registry);
+                        format!("{} ({}) - {} [{}]", name, species, label, score)
                     })
                     .collect();
                 if dateable.is_empty() {
@@ -148,18 +163,25 @@ impl Game {
                 pond_index,
                 size,
             } => {
-                let pond_name = ascii_art::POND_NAMES[*pond_index];
-                self.player.add_catch(*fish_id, pond_name, *size);
+                let pond_name = if *pond_index < ascii_art::POND_NAMES.len() {
+                    ascii_art::POND_NAMES[*pond_index].to_string()
+                } else {
+                    self.registry.pond_names()
+                        .get(*pond_index - ascii_art::POND_NAMES.len())
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| "Unknown Pond".to_string())
+                };
+                self.player.add_catch(fish_id.clone(), &pond_name, *size);
                 // Give a small affection bonus for catching
-                self.player.add_affection(*fish_id, 1);
+                self.player.add_affection(fish_id.clone(), 1);
                 let _ = save::save_game(&self.player);
             }
             GameScreen::DateResult {
                 fish_id,
                 affection,
             } => {
-                self.player.add_affection(*fish_id, *affection);
-                self.player.increment_date_count(*fish_id);
+                self.player.add_affection(fish_id.clone(), *affection);
+                self.player.increment_date_count(fish_id.clone());
                 self.player.dates_completed += 1;
                 self.player.current_day += 1;
                 let _ = save::save_game(&self.player);
@@ -171,6 +193,12 @@ impl Game {
 
     fn update_main_menu(&mut self, key: Option<KeyCode>) -> Option<GameScreen> {
         let k = key?;
+
+        // Feed every key press to the secret "moon" detector
+        if self.moon_secret.feed(k) {
+            return Some(GameScreen::MoonBattle(MoonBattleState::new()));
+        }
+
         match k {
             KeyCode::ArrowUp | KeyCode::KeyW => {
                 self.menu.move_up();
@@ -248,14 +276,18 @@ impl Game {
                 }
                 KeyCode::Enter | KeyCode::Space => {
                     let idx = menu.selected_index();
-                    let dateable: Vec<FishId> = FishId::ALL
-                        .iter()
-                        .filter(|f| self.player.has_caught(**f))
-                        .copied()
+                    let all_fish = FishId::all_with_plugins(&self.registry);
+                    let dateable: Vec<FishId> = all_fish
+                        .into_iter()
+                        .filter(|f| self.player.has_caught(f))
                         .collect();
-                    if let Some(&fish_id) = dateable.get(idx) {
+                    if let Some(fish_id) = dateable.get(idx) {
                         let date_num = self.player.date_count(fish_id);
-                        Some(GameScreen::Dating(DatingState::new(fish_id, date_num)))
+                        Some(GameScreen::Dating(DatingState::new(
+                            fish_id.clone(),
+                            date_num,
+                            &self.registry,
+                        )))
                     } else {
                         None
                     }
@@ -292,104 +324,127 @@ impl Game {
             GameScreen::MainMenu => self.render_main_menu(renderer),
             GameScreen::FishingPondSelect => {
                 if let Some(ref state) = self.pond_state {
-                    state.render(renderer, self.time);
+                    state.render(renderer, self.time, &self.registry);
                 }
             }
-            GameScreen::FishingMinigame(state) => state.render(renderer, self.time),
+            GameScreen::FishingMinigame(state) => state.render(renderer, self.time, &self.registry),
             GameScreen::CatchResult {
                 fish_id,
                 size,
                 ..
-            } => self.render_catch_result(renderer, *fish_id, *size),
+            } => self.render_catch_result(renderer, fish_id, *size),
             GameScreen::FishCollection => self.render_collection(renderer),
             GameScreen::DateSelect => self.render_date_select(renderer),
             GameScreen::Dating(state) => {
-                let affection = self.player.relationship(state.fish_id);
-                state.render(renderer, affection, self.time);
+                let affection = self.player.relationship(&state.fish_id);
+                state.render(renderer, affection, self.time, &self.registry);
             }
             GameScreen::DateResult { fish_id, affection } => {
-                self.render_date_result(renderer, *fish_id, *affection);
+                self.render_date_result(renderer, fish_id, *affection);
             }
             GameScreen::GameOver => self.render_game_over(renderer),
+            GameScreen::MoonBattle(state) => state.render(renderer, self.time),
         }
     }
 
     fn render_main_menu(&self, renderer: &mut GameRenderer) {
-        // Animated title with color cycling
+        // Title art (18 lines starting at row 1)
+        let title_lines = ascii_art::TITLE_ART.lines().count() as f32;
         let hue = (self.time * 0.5).sin() * 0.5 + 0.5;
         let title_color = [0.0 + hue * 0.3, 0.8 + hue * 0.2, 1.0, 1.0];
         renderer.draw_multiline_centered(ascii_art::TITLE_ART, 1.0, title_color);
 
-        // Subtitle with gentle pulse
+        // Subtitle just below the title art
+        let subtitle_row = 1.0 + title_lines;
         let pulse = (self.time * 2.0).sin() * 0.2 + 0.8;
         renderer.draw_centered(
             ascii_art::SUBTITLE,
-            14.0,
+            subtitle_row,
             [1.0, 1.0, 0.0, pulse],
         );
 
-        // Animated swimming fish
+        // Animated swimming fish below subtitle
+        let fish_start = subtitle_row + 2.0;
         let fish_x_offset = (self.time * 1.5).sin() * 3.0;
         let cols = renderer.screen_cols();
         let fish_col = (cols / 2.0 - 5.0 + fish_x_offset) as f32;
         renderer.draw_at_grid(
             ascii_art::BUBBLES_SMALL,
             fish_col,
-            16.0,
+            fish_start,
             Colors::ORANGE,
         );
         renderer.draw_at_grid(
             ascii_art::MARINA_SMALL,
             fish_col + 15.0 - fish_x_offset * 0.5,
-            17.0,
+            fish_start + 1.0,
             Colors::LIGHT_BLUE,
         );
         renderer.draw_at_grid(
             ascii_art::GILL_SMALL,
             fish_col + 5.0 + fish_x_offset * 0.7,
-            18.0,
+            fish_start + 2.0,
             Colors::GREEN,
         );
 
         // Animated water line
+        let wave_row = fish_start + 3.0;
         let wave = if ((self.time * 3.0) as i32) % 2 == 0 {
             "~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~"
         } else {
             " ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~~ ~"
         };
-        renderer.draw_centered(wave, 19.0, [0.2, 0.3, 0.7, 0.6]);
+        renderer.draw_centered(wave, wave_row, [0.2, 0.3, 0.7, 0.6]);
 
-        // Menu
-        self.menu.draw_centered(renderer, 21.0);
+        // Menu below the water line with a gap
+        let menu_row = wave_row + 2.0;
+        self.menu.draw_centered(renderer, menu_row);
+
+        // Everything below the menu flows from the menu bottom
+        let menu_end = menu_row + self.menu.items.len() as f32;
+
+        // Plugin count indicator
+        let mut info_row = menu_end + 1.0;
+        if self.registry.count() > 0 {
+            renderer.draw_centered(
+                &format!("Plugins: {} fish loaded", self.registry.count()),
+                info_row,
+                Colors::PURPLE,
+            );
+            info_row += 1.0;
+        }
 
         // Status bar
+        info_row += 1.0;
         let day = self.player.current_day;
         let fish_count = self.player.fish_collection.len();
         let dates = self.player.dates_completed;
         renderer.draw_centered(
             &format!("Day {} | Fish: {} | Dates: {}", day, fish_count, dates),
-            27.0,
+            info_row,
             Colors::DARK_GRAY,
         );
 
         // Controls hint
         renderer.draw_centered(
             "[Arrow Keys] Navigate  [Enter] Select  [Esc] Quit",
-            29.0,
+            info_row + 2.0,
             [0.3, 0.3, 0.3, 0.5],
         );
     }
 
-    fn render_catch_result(&self, renderer: &mut GameRenderer, fish_id: FishId, size: FishSize) {
+    fn render_catch_result(&self, renderer: &mut GameRenderer, fish_id: &FishId, size: FishSize) {
         renderer.draw_centered("=== CATCH! ===", 2.0, Colors::GREEN);
 
         renderer.draw_multiline_centered(ascii_art::CATCH_SUCCESS, 4.0, Colors::YELLOW);
 
-        let art = crate::dating::fish::fish_art(fish_id, 0);
-        renderer.draw_multiline_centered(art, 11.0, fish_id.color());
+        let art = fish_helpers::fish_art(fish_id, 0, &self.registry);
+        renderer.draw_multiline_centered(&art, 11.0, fish_id.color());
 
+        let name = fish_id.name_with_registry(&self.registry);
+        let species = fish_id.species_with_registry(&self.registry);
         renderer.draw_centered(
-            &format!("You caught {} ({})!", fish_id.name(), fish_id.species()),
+            &format!("You caught {} ({})!", name, species),
             19.0,
             Colors::WHITE,
         );
@@ -399,7 +454,7 @@ impl Game {
             Colors::YELLOW,
         );
         renderer.draw_centered(
-            &format!("Total {}: {}", fish_id.name(), self.player.catch_count(fish_id)),
+            &format!("Total {}: {}", name, self.player.catch_count(fish_id)),
             21.0,
             Colors::GRAY,
         );
@@ -417,20 +472,23 @@ impl Game {
         }
 
         let mut row = 3.0;
-        for fish_id in &FishId::ALL {
-            let count = self.player.catch_count(*fish_id);
+        let all_fish = FishId::all_with_plugins(&self.registry);
+        for fish_id in &all_fish {
+            let count = self.player.catch_count(fish_id);
             if count == 0 {
                 continue;
             }
 
-            let score = self.player.relationship(*fish_id);
+            let score = self.player.relationship(fish_id);
             let label = relationship_label(score);
+            let name = fish_id.name_with_registry(&self.registry);
+            let species = fish_id.species_with_registry(&self.registry);
 
             renderer.draw_centered(
                 &format!(
                     "{} ({}) - Caught: {} - {}: {}",
-                    fish_id.name(),
-                    fish_id.species(),
+                    name,
+                    species,
                     count,
                     label,
                     score,
@@ -461,17 +519,17 @@ impl Game {
             menu.draw_centered(renderer, 5.0);
 
             // Show selected fish preview
-            let dateable: Vec<FishId> = FishId::ALL
+            let all_fish = FishId::all_with_plugins(&self.registry);
+            let dateable: Vec<&FishId> = all_fish
                 .iter()
-                .filter(|f| self.player.has_caught(**f))
-                .copied()
+                .filter(|f| self.player.has_caught(f))
                 .collect();
-            if let Some(&fish_id) = dateable.get(menu.selected_index()) {
+            if let Some(fish_id) = dateable.get(menu.selected_index()) {
                 let score = self.player.relationship(fish_id);
-                let art = crate::dating::fish::fish_art(fish_id, score);
-                renderer.draw_multiline_centered(art, 10.0, fish_id.color());
+                let art = fish_helpers::fish_art(fish_id, score, &self.registry);
+                renderer.draw_multiline_centered(&art, 10.0, fish_id.color());
 
-                let loc = crate::dating::fish::date_location(fish_id);
+                let loc = fish_helpers::date_location(fish_id, &self.registry);
                 renderer.draw_centered(
                     &format!("Date location: {}", loc),
                     18.0,
@@ -483,17 +541,18 @@ impl Game {
         renderer.draw_centered("[Enter] Go on date  [Esc] Back", 20.0, Colors::DARK_GRAY);
     }
 
-    fn render_date_result(&self, renderer: &mut GameRenderer, fish_id: FishId, affection: i32) {
+    fn render_date_result(&self, renderer: &mut GameRenderer, fish_id: &FishId, affection: i32) {
         renderer.draw_centered("=== DATE COMPLETE ===", 2.0, Colors::PINK);
 
-        let art = crate::dating::fish::fish_art(fish_id, self.player.relationship(fish_id));
-        renderer.draw_multiline_centered(art, 5.0, fish_id.color());
+        let art = fish_helpers::fish_art(fish_id, self.player.relationship(fish_id), &self.registry);
+        renderer.draw_multiline_centered(&art, 5.0, fish_id.color());
 
         let total = self.player.relationship(fish_id);
         let label = relationship_label(total);
+        let name = fish_id.name_with_registry(&self.registry);
 
         renderer.draw_centered(
-            &format!("Date with {} finished!", fish_id.name()),
+            &format!("Date with {} finished!", name),
             13.0,
             Colors::WHITE,
         );
@@ -524,11 +583,12 @@ impl Game {
         renderer.draw_centered("=== CONGRATULATIONS! ===", 3.0, Colors::YELLOW);
 
         if let Some((fish_id, score)) = self.player.closest_fish() {
-            let art = crate::dating::fish::fish_art(fish_id, score);
-            renderer.draw_multiline_centered(art, 6.0, fish_id.color());
+            let art = fish_helpers::fish_art(&fish_id, score, &self.registry);
+            renderer.draw_multiline_centered(&art, 6.0, fish_id.color());
 
+            let name = fish_id.name_with_registry(&self.registry);
             renderer.draw_centered(
-                &format!("You and {} are soulmates!", fish_id.name()),
+                &format!("You and {} are soulmates!", name),
                 14.0,
                 Colors::PINK,
             );

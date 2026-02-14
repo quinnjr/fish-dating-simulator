@@ -19,8 +19,10 @@ use sable_platform::prelude::*;
 mod ascii_art;
 mod data;
 mod dating;
+mod easter_egg;
 mod fishing;
 mod game;
+mod plugins;
 #[allow(dead_code)]
 mod render;
 #[allow(dead_code)]
@@ -61,11 +63,14 @@ struct App {
 
 impl App {
     fn new() -> Self {
+        // Load plugin fish from the plugins/ directory
+        let registry = plugins::load_all_plugins();
+
         Self {
             window: None,
             gpu: None,
             renderer: None,
-            game: game::Game::new(),
+            game: game::Game::new(registry),
             last_frame: Instant::now(),
             pending_key: None,
         }
@@ -103,12 +108,14 @@ impl App {
 
         // Begin text rendering
         renderer.begin();
+        renderer.begin_images();
 
         // Draw the current game screen
         self.game.render(renderer);
 
         // End text rendering
         let text_count = renderer.end(gpu.queue());
+        let image_count = renderer.end_images(gpu.queue());
 
         // Submit render pass
         let mut encoder = gpu.create_command_encoder();
@@ -137,6 +144,9 @@ impl App {
             render_pass.set_bind_group(0, &renderer.camera_bind_group, &[]);
             render_pass.set_bind_group(1, &renderer.font_bind_group, &[]);
             renderer.text_renderer.render(&mut render_pass, text_count);
+
+            // Render image sprites (cult_papa face, etc.) on top
+            renderer.render_images(&mut render_pass, image_count);
         }
 
         gpu.submit(std::iter::once(encoder.finish()));

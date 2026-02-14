@@ -7,47 +7,86 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::plugins::FishRegistry;
+
 /// Unique fish identity.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+///
+/// Built-in fish use the named variants. Plugin fish use `Plugin(id_string)`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub enum FishId {
     Bubbles,
     Marina,
     Gill,
+    /// A plugin-defined fish, identified by its unique string ID.
+    Plugin(String),
 }
 
+#[allow(dead_code)]
 impl FishId {
-    pub const ALL: [FishId; 3] = [FishId::Bubbles, FishId::Marina, FishId::Gill];
+    /// All built-in fish IDs (does not include plugins).
+    pub const BUILTIN: [FishId; 3] = [FishId::Bubbles, FishId::Marina, FishId::Gill];
 
-    pub fn name(&self) -> &'static str {
+    /// Get all fish IDs including plugins.
+    pub fn all_with_plugins(registry: &FishRegistry) -> Vec<FishId> {
+        let mut all: Vec<FishId> = Self::BUILTIN.to_vec();
+        for id in registry.plugin_ids() {
+            all.push(FishId::Plugin(id.clone()));
+        }
+        all
+    }
+
+    /// Whether this is a plugin fish.
+    pub fn is_plugin(&self) -> bool {
+        matches!(self, FishId::Plugin(_))
+    }
+
+    pub fn name_with_registry(&self, registry: &FishRegistry) -> String {
         match self {
-            FishId::Bubbles => "Bubbles",
-            FishId::Marina => "Marina",
-            FishId::Gill => "Gill",
+            FishId::Bubbles => "Bubbles".to_string(),
+            FishId::Marina => "Marina".to_string(),
+            FishId::Gill => "Gill".to_string(),
+            FishId::Plugin(id) => registry
+                .get(id)
+                .map(|f| f.name.clone())
+                .unwrap_or_else(|| id.clone()),
         }
     }
 
-    pub fn species(&self) -> &'static str {
+    pub fn species_with_registry(&self, registry: &FishRegistry) -> String {
         match self {
-            FishId::Bubbles => "Clownfish",
-            FishId::Marina => "Swordfish",
-            FishId::Gill => "Pufferfish",
+            FishId::Bubbles => "Clownfish".to_string(),
+            FishId::Marina => "Swordfish".to_string(),
+            FishId::Gill => "Pufferfish".to_string(),
+            FishId::Plugin(id) => registry
+                .get(id)
+                .map(|f| f.species.clone())
+                .unwrap_or_else(|| "Fish".to_string()),
         }
     }
 
-    pub fn description(&self) -> &'static str {
+    pub fn description_with_registry(&self, registry: &FishRegistry) -> String {
         match self {
-            FishId::Bubbles => crate::ascii_art::BUBBLES_DESC,
-            FishId::Marina => crate::ascii_art::MARINA_DESC,
-            FishId::Gill => crate::ascii_art::GILL_DESC,
+            FishId::Bubbles => crate::ascii_art::BUBBLES_DESC.to_string(),
+            FishId::Marina => crate::ascii_art::MARINA_DESC.to_string(),
+            FishId::Gill => crate::ascii_art::GILL_DESC.to_string(),
+            FishId::Plugin(id) => registry
+                .get(id)
+                .map(|f| f.description.clone())
+                .unwrap_or_else(|| "A mysterious fish.".to_string()),
         }
     }
 
     /// Difficulty of catching this fish (0.0 = easy, 1.0 = hard).
-    pub fn difficulty(&self) -> f32 {
+    pub fn difficulty_with_registry(&self, registry: &FishRegistry) -> f32 {
         match self {
             FishId::Bubbles => 0.3,
             FishId::Marina => 0.6,
             FishId::Gill => 0.45,
+            FishId::Plugin(id) => registry
+                .get(id)
+                .map(|f| f.difficulty)
+                .unwrap_or(0.5),
         }
     }
 
@@ -57,15 +96,68 @@ impl FishId {
             FishId::Bubbles => 0,
             FishId::Marina => 1,
             FishId::Gill => 2,
+            // Plugin fish ponds are dynamically assigned after built-in ponds
+            FishId::Plugin(_) => usize::MAX,
         }
     }
 
     /// The fish's color for rendering.
+    pub fn color_with_registry(&self, registry: &FishRegistry) -> [f32; 4] {
+        match self {
+            FishId::Bubbles => crate::render::Colors::ORANGE,
+            FishId::Marina => crate::render::Colors::LIGHT_BLUE,
+            FishId::Gill => crate::render::Colors::GREEN,
+            FishId::Plugin(id) => registry
+                .get(id)
+                .map(|f| f.color)
+                .unwrap_or(crate::render::Colors::WHITE),
+        }
+    }
+
+    // ── Legacy convenience methods (for code that doesn't have registry access) ──
+
+    pub fn name(&self) -> &str {
+        match self {
+            FishId::Bubbles => "Bubbles",
+            FishId::Marina => "Marina",
+            FishId::Gill => "Gill",
+            FishId::Plugin(id) => id.as_str(),
+        }
+    }
+
+    pub fn species(&self) -> &str {
+        match self {
+            FishId::Bubbles => "Clownfish",
+            FishId::Marina => "Swordfish",
+            FishId::Gill => "Pufferfish",
+            FishId::Plugin(_) => "Fish",
+        }
+    }
+
+    pub fn description(&self) -> &str {
+        match self {
+            FishId::Bubbles => crate::ascii_art::BUBBLES_DESC,
+            FishId::Marina => crate::ascii_art::MARINA_DESC,
+            FishId::Gill => crate::ascii_art::GILL_DESC,
+            FishId::Plugin(_) => "A mysterious fish.",
+        }
+    }
+
+    pub fn difficulty(&self) -> f32 {
+        match self {
+            FishId::Bubbles => 0.3,
+            FishId::Marina => 0.6,
+            FishId::Gill => 0.45,
+            FishId::Plugin(_) => 0.5,
+        }
+    }
+
     pub fn color(&self) -> [f32; 4] {
         match self {
             FishId::Bubbles => crate::render::Colors::ORANGE,
             FishId::Marina => crate::render::Colors::LIGHT_BLUE,
             FishId::Gill => crate::render::Colors::GREEN,
+            FishId::Plugin(_) => crate::render::Colors::WHITE,
         }
     }
 }
@@ -131,16 +223,16 @@ impl Default for PlayerState {
 }
 
 impl PlayerState {
-    pub fn has_caught(&self, fish_id: FishId) -> bool {
-        self.fish_collection.iter().any(|f| f.id == fish_id)
+    pub fn has_caught(&self, fish_id: &FishId) -> bool {
+        self.fish_collection.iter().any(|f| f.id == *fish_id)
     }
 
-    pub fn catch_count(&self, fish_id: FishId) -> usize {
-        self.fish_collection.iter().filter(|f| f.id == fish_id).count()
+    pub fn catch_count(&self, fish_id: &FishId) -> usize {
+        self.fish_collection.iter().filter(|f| f.id == *fish_id).count()
     }
 
-    pub fn relationship(&self, fish_id: FishId) -> i32 {
-        self.relationship_scores.get(&fish_id).copied().unwrap_or(0)
+    pub fn relationship(&self, fish_id: &FishId) -> i32 {
+        self.relationship_scores.get(fish_id).copied().unwrap_or(0)
     }
 
     pub fn add_affection(&mut self, fish_id: FishId, amount: i32) {
@@ -148,8 +240,8 @@ impl PlayerState {
         *score = (*score + amount).max(0);
     }
 
-    pub fn date_count(&self, fish_id: FishId) -> u32 {
-        self.date_counts.get(&fish_id).copied().unwrap_or(0)
+    pub fn date_count(&self, fish_id: &FishId) -> u32 {
+        self.date_counts.get(fish_id).copied().unwrap_or(0)
     }
 
     pub fn increment_date_count(&mut self, fish_id: FishId) {
@@ -175,6 +267,6 @@ impl PlayerState {
         self.relationship_scores
             .iter()
             .max_by_key(|(_, score)| **score)
-            .map(|(id, score)| (*id, *score))
+            .map(|(id, score)| (id.clone(), *score))
     }
 }

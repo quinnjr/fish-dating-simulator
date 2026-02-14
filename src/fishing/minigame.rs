@@ -5,7 +5,9 @@ use winit::keyboard::KeyCode;
 
 use crate::ascii_art;
 use crate::data::{FishId, FishSize};
+use crate::dating::fish as fish_helpers;
 use crate::game::GameScreen;
+use crate::plugins::FishRegistry;
 use crate::render::{Colors, GameRenderer};
 use crate::ui;
 
@@ -48,7 +50,7 @@ pub struct MinigameState {
 impl MinigameState {
     pub fn new(fish_id: FishId, pond_index: usize) -> Self {
         let mut rng = rand::thread_rng();
-        let difficulty = fish_id.difficulty();
+        let difficulty = fish_id.difficulty(); // Uses legacy method
 
         // Zone width inversely proportional to difficulty
         let zone_width = 0.25 - difficulty * 0.15; // 0.10 to 0.25
@@ -136,7 +138,7 @@ impl MinigameState {
                         KeyCode::Enter | KeyCode::Space => {
                             if self.caught {
                                 return Some(GameScreen::CatchResult {
-                                    fish_id: self.fish_id,
+                                    fish_id: self.fish_id.clone(),
                                     pond_index: self.pond_index,
                                     size: self.fish_size,
                                 });
@@ -157,9 +159,17 @@ impl MinigameState {
         None
     }
 
-    pub fn render(&self, renderer: &mut GameRenderer, time: f32) {
-        let fish_name = self.fish_id.name();
-        let pond_name = ascii_art::POND_NAMES[self.pond_index];
+    pub fn render(&self, renderer: &mut GameRenderer, time: f32, registry: &FishRegistry) {
+        let fish_name = self.fish_id.name_with_registry(registry);
+        let pond_name = if self.pond_index < ascii_art::POND_NAMES.len() {
+            ascii_art::POND_NAMES[self.pond_index].to_string()
+        } else {
+            // Plugin fish pond
+            registry.pond_names()
+                .get(self.pond_index - ascii_art::POND_NAMES.len())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "Unknown Pond".to_string())
+        };
 
         renderer.draw_centered(
             &format!("=== Fishing at {} ===", pond_name),
@@ -192,16 +202,12 @@ impl MinigameState {
                 self.draw_catch_bar(renderer, 15.0);
 
                 // Fish swimming
-                let fish_art = match self.fish_id {
-                    FishId::Bubbles => ascii_art::BUBBLES_SMALL,
-                    FishId::Marina => ascii_art::MARINA_SMALL,
-                    FishId::Gill => ascii_art::GILL_SMALL,
-                };
+                let small_art = fish_helpers::fish_small_art(&self.fish_id, registry);
                 let fish_col = 2.0 + self.cursor_pos * (BAR_WIDTH as f32 - 8.0);
                 let cols = renderer.screen_cols() as usize;
                 let bar_start = (cols.saturating_sub(BAR_WIDTH)) / 2;
                 renderer.draw_at_grid(
-                    fish_art,
+                    &small_art,
                     bar_start as f32 + fish_col,
                     17.0,
                     self.fish_id.color(),

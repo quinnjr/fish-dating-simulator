@@ -7,6 +7,7 @@ use crate::data::dialogues;
 use crate::data::FishId;
 use crate::dating::fish;
 use crate::game::GameScreen;
+use crate::plugins::FishRegistry;
 use crate::render::{Colors, GameRenderer};
 use crate::ui;
 use crate::ui::menu::SelectionMenu;
@@ -31,8 +32,8 @@ pub struct DatingState {
 }
 
 impl DatingState {
-    pub fn new(fish_id: FishId, date_number: u32) -> Self {
-        let tree = dialogues::build_dialogue(fish_id, date_number);
+    pub fn new(fish_id: FishId, date_number: u32, registry: &FishRegistry) -> Self {
+        let tree = dialogues::build_dialogue(&fish_id, date_number, registry);
         let runner = DialogueRunner::new(tree);
 
         let mut state = Self {
@@ -110,7 +111,7 @@ impl DatingState {
         if self.ended {
             if let Some(KeyCode::Enter | KeyCode::Space) = key {
                 return Some(GameScreen::DateResult {
-                    fish_id: self.fish_id,
+                    fish_id: self.fish_id.clone(),
                     affection: self.affection_gained,
                 });
             }
@@ -143,7 +144,7 @@ impl DatingState {
                     }
                     KeyCode::Escape => {
                         return Some(GameScreen::DateResult {
-                            fish_id: self.fish_id,
+                            fish_id: self.fish_id.clone(),
                             affection: self.affection_gained,
                         });
                     }
@@ -155,8 +156,8 @@ impl DatingState {
         None
     }
 
-    pub fn render(&self, renderer: &mut GameRenderer, affection_total: i32, _time: f32) {
-        let location = fish::date_location(self.fish_id);
+    pub fn render(&self, renderer: &mut GameRenderer, affection_total: i32, _time: f32, registry: &FishRegistry) {
+        let location = fish::date_location(&self.fish_id, registry);
         renderer.draw_centered(
             &format!("=== Date at {} ===", location),
             1.0,
@@ -164,12 +165,12 @@ impl DatingState {
         );
 
         // Scene art
-        let scene_art = fish::date_scene_art(self.fish_id);
-        renderer.draw_multiline_centered(scene_art, 3.0, Colors::LIGHT_BLUE);
+        let scene_art = fish::date_scene_art(&self.fish_id, registry);
+        renderer.draw_multiline_centered(&scene_art, 3.0, Colors::LIGHT_BLUE);
 
         // Fish art on the left side
-        let fish_art = fish::fish_art(self.fish_id, affection_total);
-        renderer.draw_multiline_at_grid(fish_art, 3.0, 3.0, self.fish_id.color());
+        let fish_art_str = fish::fish_art(&self.fish_id, affection_total, registry);
+        renderer.draw_multiline_at_grid(&fish_art_str, 3.0, 3.0, self.fish_id.color());
 
         // Hearts
         let cols = renderer.screen_cols() as usize;
