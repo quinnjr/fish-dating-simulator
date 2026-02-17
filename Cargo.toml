@@ -1,6 +1,6 @@
 [package]
 name = "cult-papa-fish-dating-simulator"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Pegasus Heavy Industries LLC"]
 description = "cult_papa's fish dating simulator - catch fish, date fish, lose your mind."
